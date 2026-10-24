@@ -1,0 +1,16 @@
+name: Bug report
+description: Report behaviour that differs from the booking rules
+title: 'fix: '
+body:
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the facility, date, expected result and actual result. Do not include passwords or private student details.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, operating system, Java version and relevant redacted error messages.
