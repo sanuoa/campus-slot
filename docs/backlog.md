@@ -1,6 +1,6 @@
 # Project task list
 
-Local task records are provided because GitHub rejected branch and issue creation with HTTP 403, `Resource not accessible by integration`. No GitHub issues or pull request have been claimed as created. Convert these records into issues after write access is available.
+Local task records were supplied with the source package. The cloud Git push has now published the feature branch, and native PostgreSQL tests pass. GitHub API access is currently blocked by network policy, so no issues or pull request have been created.
 
 ## MVP implementation
 
@@ -16,7 +16,7 @@ Implementation and actual verification status are recorded separately in [verifi
 
 ## Before public deployment
 
-- **CS-06 — Publish repository work.** Grant the GitHub integration write access for contents, issues and pull requests; push `feat/campus-slot-mvp`, open a PR and inspect native PostgreSQL CI. Set `main` checks through repository settings when available. Branch protection is not configured by this package.
+- **CS-06 — Publish repository work.** The `feat/campus-slot-mvp` branch is pushed and native PostgreSQL validation passed locally. Allow `api.github.com` in cloud environment settings, then create a PR and inspect its actual CI results; API authorization may need separate verification. Set `main` checks through repository settings when available. Branch protection is not configured by this package.
 - **CS-07 — Validate actual campus rules/data.** Replace fictional facility names and hours, confirm whether exactly `@iit.ac.lk` covers student accounts, and define how staff sharing the domain are excluded if necessary. Review the cancellation-refunds-quota and 30-day defaults with the owner.
 - **CS-08 — Account recovery and abuse controls.** Implement verification resend, password reset, registration/login/resend rate limits, and cleanup/retention for unverified accounts and tokens. Never expose tokens in deployed logs.
 - **CS-09 — Production delivery.** Configure and test SMTP with a verified sender; test domain ownership verification using real inboxes and TLS. Review deliverability separately from address suffix validation.
