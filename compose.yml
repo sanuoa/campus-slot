@@ -1,0 +1,18 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: campus_slot
+      POSTGRES_USER: campus_slot
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in your .env file}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - campus_slot_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U campus_slot -d campus_slot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+volumes:
+  campus_slot_db:
