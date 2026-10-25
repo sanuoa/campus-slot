@@ -1,6 +1,6 @@
 # Campus Slot requirements
 
-Confirmed by the project owner on 24 October 2026. All dates and times shown in the interface use `Asia/Colombo`.
+Facility booking requirements. All dates and times shown in the interface use `Asia/Colombo`.
 
 ## Confirmed scope
 
@@ -14,11 +14,10 @@ Confirmed by the project owner on 24 October 2026. All dates and times shown in 
 | Identity | Exactly `@iit.ac.lk` accounts; real deployments verify mailbox ownership |
 | Technology | Java OOP and Spring Boot; React frontend; PostgreSQL database |
 | Development | Test locally before considering free or paid deployment |
-| Existing tools | Owner has Java 17 and 25; use JDK 17 consistently. PostgreSQL setup is needed |
 
 ## Initial implementation decisions
 
-These are explicit defaults chosen to make the first version implementable, not additional requirements claimed from the owner:
+The application uses these defaults:
 
 - One campus; student and administrator roles.
 - Slots start at whole hours in Sri Lanka time and may be published up to 30 days ahead.
@@ -39,3 +38,7 @@ These are explicit defaults chosen to make the first version implementable, not 
 6. Cancellation before the start makes both the slot and that student's allowance available again.
 7. After the scheduled end, the booking is shown as completed and remains in history. The next hour is a separate slot.
 8. An administrator can publish, block/unblock and manage sessions without exposing student identities in the student availability API.
+
+## Verification email
+
+Use Gmail SMTP or another configured SMTP service for real email, including local testing. Console delivery remains available only in the local profile and is clearly identified in the interface. Unverified users can resend a link using their account credentials, at most once per minute; newer links invalidate older ones.

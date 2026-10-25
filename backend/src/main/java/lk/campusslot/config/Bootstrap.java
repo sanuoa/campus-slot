@@ -25,8 +25,11 @@ public class Bootstrap implements CommandLineRunner {
     @Override @Transactional public void run(String... args) {
         boolean local=Arrays.asList(env.getActiveProfiles()).contains("local");
         boolean prod=Arrays.asList(env.getActiveProfiles()).contains("prod");
-        if (prod && (local || !env.getProperty("COOKIE_SECURE","false").equals("true") || !env.getProperty("app.frontend-url","").startsWith("https://") || env.getProperty("SMTP_HOST","").isBlank())) {
-            throw new IllegalStateException("Production needs HTTPS, COOKIE_SECURE=true, SMTP_HOST, and no local profile.");
+        if (prod && (!env.getProperty("app.mail.delivery", "smtp").equalsIgnoreCase("smtp") || local || !env.getProperty("COOKIE_SECURE","false").equals("true") || !env.getProperty("app.frontend-url","").startsWith("https://") || env.getProperty("SMTP_HOST","").isBlank())) {
+            throw new IllegalStateException("Production needs HTTPS, COOKIE_SECURE=true, SMTP_HOST, SMTP delivery, and no local profile.");
+        }
+        if (!local && env.getProperty("app.mail.delivery", "smtp").equalsIgnoreCase("console")) {
+            throw new IllegalStateException("Console verification is only allowed with the local profile.");
         }
         String adminEmail=env.getProperty("APP_ADMIN_EMAIL","");
         String adminPassword=env.getProperty("APP_ADMIN_PASSWORD","");

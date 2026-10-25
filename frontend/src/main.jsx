@@ -10,11 +10,32 @@ function Notice({ message, error }) { return message ? <div className={`notice $
 
 function Auth({ onLogin }) {
   const [mode, setMode] = useState('login');
+  const form = useRef(null);
+  const [delivery, setDelivery] = useState(null);
   const [token, setToken] = useState(() => new URLSearchParams(window.location.search).get('verify'));
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   useEffect(() => { if (token) window.history.replaceState({}, '', window.location.pathname); }, [token]);
+  useEffect(() => {
+    let active = true;
+    api('/auth/verification-config').then(config => { if (active) setDelivery(config.delivery); }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+  const verificationHint = delivery === 'console'
+    ? 'Development mode: find your verification link in the backend terminal. No email is sent.'
+    : delivery === 'smtp' ? 'Check your IIT inbox and spam folder for the verification email.'
+    : 'Verify your email before logging in.';
+  async function resend() {
+    if (!form.current.reportValidity()) return;
+    setBusy(true); setError(''); setNotice('');
+    const data = Object.fromEntries(new FormData(form.current));
+    try {
+      await api('/auth/resend-verification', { method: 'POST', body: { email: data.email, password: data.password } });
+      setNotice(`If these credentials match an unverified account, a new verification link can be issued once per minute. ${verificationHint}`);
+    } catch (err) { setError(err.message); }
+    finally { setBusy(false); }
+  }
   async function submit(event) {
     event.preventDefault(); setBusy(true); setError(''); setNotice('');
     const data = Object.fromEntries(new FormData(event.currentTarget));
@@ -22,7 +43,7 @@ function Auth({ onLogin }) {
       if (token) {
         await api('/auth/verify', { method: 'POST', body: { token } }); setToken(null); setMode('login'); setNotice('Email verified. You can now log in.');
       } else if (mode === 'register') {
-        await api('/auth/register', { method: 'POST', body: data }); setMode('login'); setNotice('Account created. Use the verification link sent to your IIT email before logging in.');
+        await api('/auth/register', { method: 'POST', body: data }); setMode('login'); setNotice(`Account created. ${verificationHint}`);
       } else {
         await api('/auth/login', { method: 'POST', body: new URLSearchParams({ username: data.email, password: data.password }) });
         onLogin(await api('/auth/me'));
@@ -33,8 +54,8 @@ function Auth({ onLogin }) {
   return <main className="auth-shell">
     <section className="auth-story"><Brand/><div className="story-copy"><span className="eyebrow light">A LITTLE SPACE. A LOT OF POSSIBILITY.</span><h1>Your next great<br/>hour starts here.</h1><p>A quiet room. A place to build. A court to reset.<br/>Find a campus space and make it yours for an hour.</p><div className="story-tags"><span>Study rooms</span><span>Computer labs</span><span>Sports courts</span></div></div><div className="room-art" aria-hidden="true"><div className="window-art"/><div className="lamp-art"/><div className="desk-art"/><div className="chair-art"/><div className="plant-art">✳</div><span className="art-note">A SPACE FOR WHAT’S NEXT ↗</span></div><small className="story-footer">Built for the IIT student community · Independent student project</small></section>
     <section className="auth-form-wrap"><div className="auth-form"><span className="eyebrow">WELCOME TO CAMPUS SLOT</span><h2>{token ? 'One last step.' : mode === 'register' ? 'Find your place.' : 'Welcome back.'}</h2><p className="muted">{token ? 'Verify your IIT email to activate your account.' : mode === 'register' ? 'Create an account using your @iit.ac.lk email.' : 'Log in with your verified IIT email to book a space.'}</p>
-      <Notice message={notice}/><Notice message={error} error/>
-      <form onSubmit={submit}>
+      <Notice message={delivery === 'console' ? verificationHint : ''}/><Notice message={notice}/><Notice message={error} error/>
+      <form ref={form} onSubmit={submit}>
         {!token && <>
           {mode === 'register' && <label>Full name<input name="name" autoComplete="name" required maxLength="80" placeholder="Your name"/></label>}
           <label>IIT email<input name="email" type="email" autoComplete="username" required maxLength="254" placeholder="yourname@iit.ac.lk"/></label>
@@ -42,6 +63,7 @@ function Auth({ onLogin }) {
         </>}
         <button className="button primary wide" disabled={busy}>{busy ? 'Please wait…' : token ? 'Verify my email' : mode === 'register' ? 'Create account →' : 'Log in →'}</button>
       </form>
+      {!token && mode === 'login' && <p><button className="text-button" disabled={busy} onClick={resend}>Resend verification link</button><small className="muted"> Enter your account email and password first. Allow one minute between requests.</small></p>}
       {!token && <p className="auth-switch">{mode === 'login' ? 'New here?' : 'Already have an account?'} <button className="text-button" onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}>{mode === 'login' ? 'Create an account' : 'Log in'}</button></p>}
       <div className="auth-rule"><span>◷</span><div><strong>One student. One space. One hour.</strong><p>One session per day, across all facilities.<br/>Your whole room or court is reserved for you.</p></div></div>
     </div></section>

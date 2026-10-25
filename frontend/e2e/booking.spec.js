@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 // Frontend interaction tests use explicit API fixtures. Backend behaviour has its own integration suite.
-async function fixture(page, { role = 'STUDENT', quota = false, authenticated = true } = {}) {
+async function fixture(page, { role = 'STUDENT', quota = false, authenticated = true, delivery = 'smtp' } = {}) {
   const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Colombo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const next = new Date(`${date}T12:00:00+05:30`); next.setUTCDate(next.getUTCDate() + 1);
   const tomorrow = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Colombo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(next);
@@ -12,7 +12,9 @@ async function fixture(page, { role = 'STUDENT', quota = false, authenticated = 
   await page.route('**/api/**', async route => {
     const request = route.request(); const path = new URL(request.url()).pathname;
     let result = null; let status = 200;
-    if (path === '/api/auth/csrf') result = { token: 'fixture-token', headerName: 'X-CSRF-TOKEN' };
+    if (path === '/api/auth/verification-config') result = { delivery };
+    else if (path === '/api/auth/resend-verification') { mutations.push(request.postDataJSON()); status = 202; }
+    else if (path === '/api/auth/csrf') result = { token: 'fixture-token', headerName: 'X-CSRF-TOKEN' };
     else if (path === '/api/auth/me') { if (!authenticated) { status = 401; result = { message: 'Please log in.' }; } else result = user; }
     else if (path === '/api/auth/login') { authenticated = true; status = 204; }
     else if (path === '/api/auth/register') { mutations.push(request.postDataJSON()); status = 201; }
@@ -69,4 +71,27 @@ test('administrator can add a facility and mobile layout has no horizontal overf
   await page.getByLabel('Capacity').fill('12'); await page.getByRole('button', { name: 'Save facility' }).click();
   await expect(page.getByRole('status')).toContainText('Facility saved.');
   expect(mutations[0]).toMatchObject({ name: 'New Lab', location: 'Level 2', capacity: 12 });
+});
+
+
+test('console delivery explains where verification links appear', async ({ page }) => {
+  await fixture(page, { authenticated: false, delivery: 'console' });
+  await page.goto('/');
+  await expect(page.getByRole('status')).toContainText('No email is sent.');
+  await page.getByRole('button', { name: 'Create an account' }).click();
+  await page.getByLabel('Full name').fill('Test Student');
+  await page.getByLabel('IIT email').fill('test@iit.ac.lk');
+  await page.getByLabel('Password', { exact: true }).fill('A test password 123!');
+  await page.getByRole('button', { name: 'Create account →' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Account created.' })).toContainText('backend terminal');
+});
+
+test('unverified students can request another verification link using their credentials', async ({ page }) => {
+  const { mutations } = await fixture(page, { authenticated: false });
+  await page.goto('/');
+  await page.getByLabel('IIT email').fill('test@iit.ac.lk');
+  await page.getByLabel('Password', { exact: true }).fill('A test password 123!');
+  await page.getByRole('button', { name: 'Resend verification link' }).click();
+  await expect(page.getByRole('status')).toContainText('Check your IIT inbox');
+  expect(mutations).toEqual([{ email: 'test@iit.ac.lk', password: 'A test password 123!' }]);
 });
