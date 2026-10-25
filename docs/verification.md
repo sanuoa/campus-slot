@@ -1,44 +1,31 @@
-# Verification report
+# Testing
 
-Checked on 24 October 2026. This file distinguishes current cloud validation from earlier package checks and validations still needed on GitHub or before deployment.
+## Automated checks
 
-| Check | Result |
-| --- | --- |
-| Java compilation with JDK 17 | Passed |
-| Maven executable JAR packaging | Passed |
-| Java domain tests | 7 passed |
-| Native PostgreSQL 17 integration tests | 10 passed, zero skipped, using normal Flyway migrations and multiple JDBC connections |
-| Frontend date/quota tests | 4 passed |
-| Frontend Chromium interaction tests | 4 passed using installed Chromium; API fixtures explicitly used |
-| Vite production build | Passed |
-| Real HTTP browser smoke test | Passed against packaged Spring Boot API and native PostgreSQL 17: registration, verification, login, browsing, booking and cancellation; no browser exceptions |
-| Desktop and mobile inspection | Earlier package inspection at 1440px and 390px; current browser suite also checks no horizontal overflow at 390px |
-| Frontend production dependency audit | 0 reported vulnerabilities at verification time; not a guarantee of overall security |
-| Native PostgreSQL 17 concurrency tests | Passed: same-slot competition and same-student/different-room competition each produce exactly one booking |
-| GitHub publication | Feature branch pushed successfully using HTTPS Git authentication; Actions results unverified because API requests are blocked by environment network policy |
-| SMTP verification against real IIT inboxes | Pending before deployment |
-| Windows installation on the owner's PC | Instructions supplied; pending owner run |
+From `frontend/`:
 
-## Current cloud validation
+```shell
+npm ci
+npm test
+npm run build
+npx playwright install chromium
+npm run test:e2e
+```
 
-The cloud run used JDK 17, Node 24, and a Docker PostgreSQL 17 service. `RUN_DB_TESTS=true` and a separate disposable `campus_slot_test` database enabled all 17 backend tests (7 domain, 10 integration; zero failures/errors/skips). The application database was separate. Maven `verify`, frontend unit tests, Vite build and the production dependency audit passed; the audit reported zero vulnerabilities at this run. TLS verification stayed enabled; Maven used the platform proxy and system Java trust store.
+Unit tests cover date handling and the daily allowance. Browser tests cover booking confirmation, completed-session quota, registration, administrator/mobile behaviour, console-delivery messaging and verification resends. Browser tests use explicit API fixtures; they do not prove backend or inbox delivery.
 
-The Playwright browser download was denied by network policy. All four existing browser tests passed using a temporary configuration selecting `/usr/bin/chromium`; tracked test configuration was unchanged. A separate live browser smoke test used the actual Vite proxy, API, sessions, CSRF tokens, local verification sender and native database. No real student data or real email delivery was used.
+From `backend/`, use the Maven wrapper (`mvnw.cmd` on Windows):
 
-## Earlier package harness and its limits
+```shell
+./mvnw test
+```
 
-In the earlier package environment, the runtime could not start an ordinary PostgreSQL server as a non-root user. A temporary **PGlite PostgreSQL engine**, exposed over its socket adapter, was used for integration checks. The repository itself still uses native PostgreSQL and does not depend on PGlite.
+This runs domain and mail-delivery tests. To include database integration tests, create a **disposable PostgreSQL database**, export `RUN_DB_TESTS=true`, `DB_URL`, `DB_USERNAME` and `DB_PASSWORD`, then run `./mvnw verify`. Integration tests truncate application tables. Never point them at an application or production database. See [local setup](local-setup.md) for Windows commands.
 
-The V1 migration SQL was applied directly to that engine before starting tests; Flyway was disabled only in this temporary harness. Hibernate validated the resulting schema. The harness used a single JDBC connection because of PGlite's connection model. It verified registration, single-use verification, role restrictions, CSRF, booking ownership, cancellation, quota and database unique indexes. Competing request tests passed, but serialization through one connection means these results do **not** validate native PostgreSQL lock behaviour under multiple simultaneous database connections.
+Integration tests exercise registration, single-use verification, credential-protected resends, resend cooldown, token replacement, mail-failure rollback, permissions, CSRF, quota, cancellation, uniqueness and competing bookings against native PostgreSQL. GitHub Actions provides a separate PostgreSQL service.
 
-The checked-in CI suite uses a real PostgreSQL 17 service with the normal Flyway startup and normal connection pool. Native PostgreSQL concurrency has now also passed locally in the cloud run above. Inspect the actual GitHub CI result before merging.
+## Manual email checks
 
-## Browser checks
+Configure [Gmail SMTP](local-setup.md#send-verification-emails-with-gmail), register an IIT account, and verify the message arrives in its actual inbox. Open the link, log in, book and cancel a future session. Check resend for an unverified account after the cooldown, confirm the older link stops working, and confirm a verified account receives no new link. Never publish credentials, real student records or verification links in test reports.
 
-Four checked-in Playwright tests use API fixtures to test registration payloads, confirmation interactions, completed-session quota UI and administrator/mobile behaviour. Separate temporary live browser validation used the actual packaged Spring Boot application and its session/CSRF implementation. It exercised registration, local verification, login, browsing, booking, cancellation, logout and administrator facility creation with no browser exceptions.
-
-Test accounts were fictional; local development verification did not send messages to real inboxes. Visual QA screenshots were internal checks and are not included in the source package.
-
-## Release status
-
-Local MVP candidate. Public deployment remains gated by GitHub CI, real mail delivery, account recovery/abuse controls, actual campus data and the production checks in [backlog](backlog.md).
+Automated mail-client tests and local SMTP capture establish integration behaviour; real Gmail authentication, institutional filtering and inbox delivery require the configured sender and recipient mailboxes. Production checks remain in the [roadmap](backlog.md).
