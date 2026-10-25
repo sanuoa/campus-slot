@@ -76,9 +76,51 @@ The service name depends on the installed version; check Windows Services if tha
 
 Open **http://localhost:5173**. The Vite proxy sends `/api` requests to Spring Boot at `127.0.0.1:8080` so cookies and CSRF work on one browser origin.
 
+### Console delivery (local development)
+
 With `MAIL_DELIVERY=console`, **no email is sent and Gmail is not required**. Register, or enter an existing unverified account's email and password and click **Resend verification link**. Allow one minute between links, then copy the private verification URL from the backend terminal, open it, and click **Verify my email**. Log in to reach the student dashboard. Already verified accounts can log in directly.
 
-The local profile adds fictional example facilities and seven days of sample sessions on the first empty-database startup only. For real email delivery, follow the [Gmail SMTP setup](docs/local-setup.md#send-verification-emails-with-gmail) and use `MAIL_DELIVERY=smtp`. Public deployments require SMTP and the `prod` profile; console verification is only for local development.
+### Gmail delivery (SMTP)
+
+Use a Gmail account you control to send verification emails to students' `@iit.ac.lk` inboxes. The Gmail sender address and the Campus Slot student account are separate.
+
+1. Enable [Google 2-Step Verification](https://support.google.com/accounts/answer/185839) for the sender account.
+2. Generate a [Google App Password](https://support.google.com/accounts/answer/185833) for that same account. Use the App Password, not your normal Gmail password. Availability depends on your Google account's security policy.
+3. Stop the backend with **Ctrl+C**. In the **same backend CMD window**, keep the database variables and local profile from the quick run above, then run:
+
+```bat
+set "MAIL_DELIVERY=smtp"
+set "SMTP_HOST=smtp.gmail.com"
+set "SMTP_PORT=587"
+set "SMTP_AUTH=true"
+set "SMTP_STARTTLS=true"
+set "SMTP_STARTTLS_REQUIRED=true"
+set "SMTP_SSL=false"
+set /p "SMTP_USERNAME=Enter your Gmail sender address: "
+set "MAIL_FROM=%SMTP_USERNAME%"
+set /p "SMTP_PASSWORD=Enter your Google App Password without spaces: "
+set "SMTP_PASSWORD=%SMTP_PASSWORD: =%"
+set "FRONTEND_URL=http://localhost:5173"
+mvnw.cmd spring-boot:run
+```
+
+Keep the command text as shown and enter your details only when prompted. CMD displays typed input; keep passwords out of screenshots and Git. The [PowerShell Gmail guide](docs/local-setup.md#send-verification-emails-with-gmail) provides a masked password prompt. Configure these variables again in a new terminal.
+
+Keep the frontend running. Register, or enter your existing unverified account's IIT email and Campus Slot password and click **Resend verification link**. Wait at least one minute between links. Check the IIT inbox and spam folder, open the newest link, verify, then log in. Normal login does not send a new verification email.
+
+If port 587's SMTP connection is closed, Gmail also supports implicit TLS on port 465. Stop the backend and change the connection settings in the same CMD window before restarting:
+
+```bat
+set "SMTP_PORT=465"
+set "SMTP_STARTTLS=false"
+set "SMTP_STARTTLS_REQUIRED=false"
+set "SMTP_SSL=true"
+mvnw.cmd spring-boot:run
+```
+
+Inbox delivery requires working Gmail credentials and SMTP connectivity; the console workflow does not test email delivery. To return to terminal verification, stop the backend, run `set "MAIL_DELIVERY=console"`, and restart it.
+
+The local profile adds fictional example facilities and seven days of sample sessions on the first empty-database startup only. Public deployments require SMTP and the `prod` profile; console verification is only for local development.
 
 Press **Ctrl+C** in each application window to stop it. PostgreSQL retains the records between runs.
 
