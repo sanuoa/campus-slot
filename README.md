@@ -10,7 +10,7 @@ Independent student portfolio project. Sample facilities are fictional; this is 
 2. Follow the [Windows/local setup guide](docs/local-setup.md).
 3. Review the [screen wireframes](docs/wireframes.html) and [Java OOP design](docs/architecture.md).
 4. Use the [API guide](docs/api.md) when testing in Postman.
-5. See [verification results](docs/verification.md) for what has actually been checked.
+5. See [testing](docs/verification.md) for the test suites and their scope.
 
 ## Technology
 
@@ -20,7 +20,7 @@ Independent student portfolio project. Sample facilities are fictional; this is 
 | Backend | Java 17, Spring Boot 4.0.9, Maven |
 | Database | PostgreSQL, SQL, Flyway migrations, Spring Data JPA / Hibernate |
 | Authentication | Spring Security, BCrypt passwords, server sessions, CSRF protection |
-| Email | Local development links in the backend terminal; SMTP delivery outside the local profile |
+| Email | Terminal links for development, or authenticated SMTP (including Gmail) for real delivery |
 | Tests | JUnit, MockMvc, PostgreSQL integration tests, Vitest |
 | Repository | GitHub feature branches, pull requests, issue templates, GitHub Actions |
 
@@ -56,7 +56,7 @@ npm run dev
 
 Open **http://localhost:5173**. The Vite proxy sends `/api` requests to Spring Boot at `127.0.0.1:8080` so cookies and CSRF work on one browser origin.
 
-The local profile adds fictional example facilities and seven days of sample sessions on the first run only. It prints verification links in the backend terminal; it does **not** prove ownership of a real mailbox. Real deployments must use SMTP and the `prod` profile.
+The local profile adds fictional example facilities and seven days of sample sessions on the first run only. By default, it prints verification links in the backend terminal. To send real email locally, follow the [Gmail SMTP setup](docs/local-setup.md#send-verification-emails-with-gmail) and set `MAIL_DELIVERY=smtp`. Existing unverified accounts can request a new link from the login page. Real deployments must use SMTP and the `prod` profile.
 
 ## Test
 

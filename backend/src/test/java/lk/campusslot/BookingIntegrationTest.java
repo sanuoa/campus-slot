@@ -39,6 +39,7 @@ class BookingIntegrationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired PlatformTransactionManager transactions;
     @Autowired CapturingSender sender;
+    @Autowired AuthService auth;
     private static final Instant NOW=Instant.parse("2026-10-24T01:30:00Z");
     private static final String PASSWORD="A test password 123!";
     @TestConfiguration static class Config {
@@ -47,9 +48,13 @@ class BookingIntegrationTest {
     }
     static class CapturingSender implements VerificationSender {
         String url;
-        @Override public void send(String email,String verificationUrl) { url=verificationUrl; }
+        boolean fail;
+        @Override public void send(String email,String verificationUrl) {
+            if (fail) throw new ApiException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,"Email delivery is unavailable.");
+            url=verificationUrl;
+        }
     }
-    @BeforeEach void clean() { jdbc.execute("TRUNCATE booking, verification_token, facility_slot, facility, campus_user RESTART IDENTITY CASCADE"); sender.url=null; }
+    @BeforeEach void clean() { jdbc.execute("TRUNCATE booking, verification_token, facility_slot, facility, campus_user RESTART IDENTITY CASCADE"); sender.url=null; sender.fail=false; }
     CampusUser student(String email) { var u=new CampusUser("Student",email,passwords.encode(PASSWORD)); u.verify(); return users.saveAndFlush(u); }
     FacilitySlot slot(Facility.Type type,Instant at) {
         var f=facilities.saveAndFlush(new Facility("Test "+type,type,"Test building",6));
@@ -65,6 +70,48 @@ class BookingIntegrationTest {
         var login=mvc.perform(post("/api/auth/login").with(csrf()).param("username","student@iit.ac.lk").param("password",PASSWORD)).andExpect(status().isNoContent()).andReturn();
         mvc.perform(get("/api/auth/me").session((org.springframework.mock.web.MockHttpSession)login.getRequest().getSession(false)))
             .andExpect(status().isOk()).andExpect(jsonPath("$.role").value("STUDENT")).andExpect(jsonPath("$.passwordHash").doesNotExist());
+    }
+    @Test void deliveryConfigurationIsPublicAndResendingStillRequiresCsrf() throws Exception {
+        mvc.perform(get("/api/auth/verification-config")).andExpect(status().isOk()).andExpect(jsonPath("$.delivery").value("console"));
+        mvc.perform(post("/api/auth/resend-verification").contentType("application/json")
+            .content("{\"email\":\"student@iit.ac.lk\",\"password\":\""+PASSWORD+"\"}"))
+            .andExpect(status().isForbidden());
+    }
+    @Test void resendingRequiresCredentialsHonoursCooldownAndReplacesOldToken() throws Exception {
+        auth.register("Student","student@iit.ac.lk",PASSWORD);
+        String oldToken=sender.url.substring(sender.url.indexOf("?verify=")+8);
+        sender.url=null;
+        auth.resend("student@iit.ac.lk",PASSWORD);
+        assertThat(sender.url).isNull();
+        jdbc.update("update verification_token set expires_at=expires_at-interval '2 minutes'");
+        auth.resend("student@iit.ac.lk","wrong password");
+        auth.resend("unknown@iit.ac.lk",PASSWORD);
+        assertThat(sender.url).isNull();
+        mvc.perform(post("/api/auth/resend-verification").with(csrf()).contentType("application/json")
+            .content("{\"email\":\"student@iit.ac.lk\",\"password\":\""+PASSWORD+"\"}"))
+            .andExpect(status().isAccepted());
+        String newToken=sender.url.substring(sender.url.indexOf("?verify=")+8);
+        assertThat(newToken).isNotEqualTo(oldToken);
+        assertThat(jdbc.queryForObject("select count(*) from verification_token",Integer.class)).isEqualTo(1);
+        assertThatThrownBy(() -> auth.verify(oldToken)).isInstanceOf(ApiException.class);
+        auth.verify(newToken);
+        sender.url=null;
+        auth.resend("student@iit.ac.lk",PASSWORD);
+        assertThat(sender.url).isNull();
+        assertThat(jdbc.queryForObject("select count(*) from verification_token",Integer.class)).isZero();
+    }
+    @Test void failedEmailDeliveryRollsBackRegistrationAndPreservesPreviousResendToken() {
+        sender.fail=true;
+        assertThatThrownBy(() -> auth.register("Student","student@iit.ac.lk",PASSWORD)).isInstanceOf(ApiException.class);
+        assertThat(users.findByEmail("student@iit.ac.lk")).isEmpty();
+        sender.fail=false;
+        auth.register("Student","student@iit.ac.lk",PASSWORD);
+        String oldToken=sender.url.substring(sender.url.indexOf("?verify=")+8);
+        jdbc.update("update verification_token set expires_at=expires_at-interval '2 minutes'");
+        sender.fail=true;
+        assertThatThrownBy(() -> auth.resend("student@iit.ac.lk",PASSWORD)).isInstanceOf(ApiException.class);
+        auth.verify(oldToken);
+        assertThat(users.findByEmail("student@iit.ac.lk").orElseThrow().isVerified()).isTrue();
     }
     @Test void outsidersAndForgedRolesCannotRegisterAsAdministrators() throws Exception {
         mvc.perform(post("/api/auth/register").with(csrf()).contentType("application/json").content("{\"name\":\"Student\",\"email\":\"s@iit.ac.lk.evil.com\",\"password\":\""+PASSWORD+"\"}")).andExpect(status().isBadRequest());
