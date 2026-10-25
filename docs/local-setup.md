@@ -146,7 +146,7 @@ For Linux/macOS use `./mvnw` and `export VARIABLE=value` instead of the PowerShe
 | Problem | Fix |
 | --- | --- |
 | JVM target mismatch | Select JDK 17 everywhere, including IntelliJ's Maven runner; check `javac -version` |
-| Password authentication failed | Confirm the `campus_slot` role's password matches `DB_PASSWORD` |
+| Password authentication failed for user `campus_slot` | The database role password and `DB_PASSWORD` differ. In SQL Shell connected as `postgres`, run `\password campus_slot` and choose a new password. In the backend PowerShell terminal, set `$env:DB_PASSWORD` to that same password and restart the backend. With Docker, changing `.env` does not update a password in an already initialized database volume; run `docker compose exec db psql -U campus_slot -d campus_slot`, then `\password campus_slot`, and update `DB_PASSWORD` in the backend terminal too. |
 | Connection refused on 5432 | Start PostgreSQL, or change `DB_URL` to the configured local port |
 | Login fails after registration | Complete verification; in local mode find the link in the backend terminal |
 | Browser shows backend unavailable | Keep terminal 1 running; verify Spring Boot started successfully on 8080 |
