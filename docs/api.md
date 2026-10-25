@@ -12,6 +12,8 @@ Before **every mutation**, GET `/api/auth/csrf`, retain the returned session coo
 
 | Method and path | Body / response | Access |
 | --- | --- | --- |
+| `GET /auth/verification-config` | `{ "delivery": "console" }` or `{ "delivery": "smtp" }`; no credentials | Public |
+| `POST /auth/resend-verification` | `{ "email": "student@iit.ac.lk", "password": "account password" }`; 202 | Public, CSRF required |
 | `GET /auth/csrf` | CSRF token and header name | Public |
 | `POST /auth/register` | `{ "name": "Student", "email": "student@iit.ac.lk", "password": "a long unique password" }`; 201 | Public, CSRF required |
 | `POST /auth/verify` | `{ "token": "token-from-link" }`; 204 | Public, CSRF required |
@@ -19,7 +21,7 @@ Before **every mutation**, GET `/api/auth/csrf`, retain the returned session coo
 | `GET /auth/me` | `{ "id": 1, "name": "Student", "email": "student@iit.ac.lk", "role": "STUDENT" }` | Signed in |
 | `POST /auth/logout` | No body; 204 | Signed in, CSRF required |
 
-Passwords need at least 12 characters and at most 72 UTF-8 bytes. Names are at most 80 characters. Only exactly `@iit.ac.lk` is accepted, case-normalized. Registration ignores any client-supplied role and creates `STUDENT` only. Verification tokens expire after 24 hours and are single-use. Expired-link recovery is a tracked follow-up; local development can reset its disposable account database rather than reusing an expired account.
+Passwords need at least 12 characters and at most 72 UTF-8 bytes. Names are at most 80 characters. Only exactly `@iit.ac.lk` is accepted, case-normalized. Registration ignores any client-supplied role and creates `STUDENT` only. Verification tokens expire after 24 hours and are single-use. Resending requires the account password and is limited to one link per minute per unverified account. A successful resend invalidates older links. Unknown accounts, incorrect passwords, verified accounts and cooldown requests return the same 202 response without sending mail. SMTP failures return 503 and roll back token replacement. Login itself does not send mail.
 
 ## Student facilities and bookings
 

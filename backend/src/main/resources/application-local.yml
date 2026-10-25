@@ -1,0 +1,3 @@
+app:
+  mail:
+    delivery: ${MAIL_DELIVERY:console}

@@ -1,6 +1,7 @@
 package lk.campusslot.auth;
 
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Value;
 import jakarta.validation.constraints.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.csrf.CsrfToken;
@@ -12,6 +13,12 @@ public class AuthController {
     private final AuthService auth;
     private final UserRepository users;
     public AuthController(AuthService auth, UserRepository users) { this.auth = auth; this.users = users; }
+    @Value("${app.mail.delivery}") private String delivery;
+    public record VerificationConfig(String delivery) {}
+    @GetMapping("/verification-config") public VerificationConfig verificationConfig() { return new VerificationConfig(delivery.toLowerCase(java.util.Locale.ROOT)); }
+    public record ResendRequest(@NotBlank @Email @Size(max=254) String email, @NotBlank @Size(max=72) String password) {}
+    @PostMapping("/resend-verification") @ResponseStatus(HttpStatus.ACCEPTED)
+    public void resend(@Valid @RequestBody ResendRequest request) { auth.resend(request.email(), request.password()); }
     public record Registration(@NotBlank @Size(max=80) String name, @NotBlank @Email @Size(max=254) String email,
                                @NotBlank @Size(min=12,max=72) String password) {}
     public record VerifyRequest(@NotBlank String token) {}

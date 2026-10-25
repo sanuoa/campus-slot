@@ -25,8 +25,8 @@ public class SecurityConfig {
     @Bean SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         // Session CSRF token is fetched explicitly by the SPA; the default BREACH protection stays enabled.
         http.authorizeHttpRequests(a -> a
-                .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/verify", "/api/auth/login").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/auth/csrf", "/api/auth/verification-config").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/verify", "/api/auth/login", "/api/auth/resend-verification").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/bookings").hasRole("STUDENT")
                 .requestMatchers("/api/**").authenticated()

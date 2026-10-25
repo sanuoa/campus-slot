@@ -30,10 +30,24 @@ public class AuthService {
         if (password.getBytes(StandardCharsets.UTF_8).length > 72) throw ApiException.invalid("Password must fit within 72 UTF-8 bytes.");
         if (users.findByEmail(email).isPresent()) throw ApiException.conflict("An account already exists for this email.");
         var user = users.saveAndFlush(new CampusUser(name, email, passwords.encode(password)));
+        sendVerification(user);
+    }
+    @Transactional
+    public void resend(String email, String password) {
+        // Require the account password, serialize resends, and avoid disclosing account status.
+        var user = users.lockByEmail(CampusEmail.normalize(email)).orElse(null);
+        if (user == null || !passwords.matches(password, user.getPasswordHash()) || user.isVerified()) return;
+        var latest = tokens.findFirstByUserIdOrderByExpiresAtDesc(user.getId());
+        if (latest.isPresent() && latest.get().getExpiresAt().minus(Duration.ofHours(24)).plusSeconds(60).isAfter(clock.instant())) return;
+        tokens.deleteByUserId(user.getId());
+        tokens.flush();
+        sendVerification(user);
+    }
+    private void sendVerification(CampusUser user) {
         var random = new byte[32]; new SecureRandom().nextBytes(random);
         String token = HexFormat.of().formatHex(random);
         tokens.save(new VerificationToken(user, hash(token), clock.instant().plus(Duration.ofHours(24))));
-        sender.send(email, frontendUrl + "/?verify=" + token);
+        sender.send(user.getEmail(), frontendUrl + "/?verify=" + token);
     }
     @Transactional
     public void verify(String token) {
