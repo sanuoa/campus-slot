@@ -39,24 +39,48 @@ The frontend calls **our own Spring Boot REST API**. SMTP is the only external s
 
 ## Quick run
 
-Install a JDK 17, Node.js 22.12+ (Node 24 used in CI), and PostgreSQL. Create the database and export the variables in [local setup](docs/local-setup.md).
+Install JDK 17, Node.js 22.12+ (Node 24 used in CI), and PostgreSQL. Complete the one-time database creation in [local setup](docs/local-setup.md) first; keep the existing database for subsequent runs.
 
-```powershell
-# Terminal 1, from the repository root
+For an everyday local run, open **two Windows Command Prompt (CMD) windows in the repository root**. These commands use CMD syntax; the [local setup guide](docs/local-setup.md) uses PowerShell.
+
+**CMD 1 — backend:**
+
+```bat
 cd backend
-$env:SPRING_PROFILES_ACTIVE="local"
-$env:DB_PASSWORD="your-local-database-password"
-.\mvnw.cmd spring-boot:run
+set "SPRING_PROFILES_ACTIVE=local"
+set "MAIL_DELIVERY=console"
+set "DB_URL=jdbc:postgresql://localhost:5432/campus_slot"
+set "DB_USERNAME=campus_slot"
+set /p "DB_PASSWORD=Enter campus_slot database password: "
+mvnw.cmd spring-boot:run
+```
 
-# Terminal 2
+Enter the password for the PostgreSQL `campus_slot` account, not your Gmail or Campus Slot login password. Wait for `Started CampusSlotApplication` and keep this window open. Set these variables again whenever you open a new backend terminal.
+
+**CMD 2 — frontend:**
+
+```bat
 cd frontend
-npm ci
 npm run dev
 ```
 
+Run `npm ci` in `frontend` before starting it on first setup or after dependency changes. Keep this window open too.
+
+**Database:** PostgreSQL normally starts automatically with Windows. If it is stopped, start its service through Windows Services. For a standard PostgreSQL 17 installation, an administrator CMD can run:
+
+```bat
+net start postgresql-x64-17
+```
+
+The service name depends on the installed version; check Windows Services if that name is not found. Do not recreate the database for each run.
+
 Open **http://localhost:5173**. The Vite proxy sends `/api` requests to Spring Boot at `127.0.0.1:8080` so cookies and CSRF work on one browser origin.
 
-The local profile adds fictional example facilities and seven days of sample sessions on the first run only. By default, it prints verification links in the backend terminal. To send real email locally, follow the [Gmail SMTP setup](docs/local-setup.md#send-verification-emails-with-gmail) and set `MAIL_DELIVERY=smtp`. Existing unverified accounts can request a new link from the login page. Real deployments must use SMTP and the `prod` profile.
+With `MAIL_DELIVERY=console`, **no email is sent and Gmail is not required**. Register, or enter an existing unverified account's email and password and click **Resend verification link**. Allow one minute between links, then copy the private verification URL from the backend terminal, open it, and click **Verify my email**. Log in to reach the student dashboard. Already verified accounts can log in directly.
+
+The local profile adds fictional example facilities and seven days of sample sessions on the first empty-database startup only. For real email delivery, follow the [Gmail SMTP setup](docs/local-setup.md#send-verification-emails-with-gmail) and use `MAIL_DELIVERY=smtp`. Public deployments require SMTP and the `prod` profile; console verification is only for local development.
+
+Press **Ctrl+C** in each application window to stop it. PostgreSQL retains the records between runs.
 
 ## Test
 
